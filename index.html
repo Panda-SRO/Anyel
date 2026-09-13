@@ -519,7 +519,7 @@ async function saveAll(){
     });
     (deletedIds||[]).forEach(id=>{ batch.delete(fb.doc(fb.db,'productos',id)); changes++; });
     if(changes===0){ status('No hay cambios que guardar.'); if(bt) bt.disabled=false; return; }
-    await batch.commit();
+    await Promise.race([ batch.commit(), new Promise((_,rej)=>setTimeout(()=>rej(Object.assign(new Error('timeout'),{code:'timeout'})), 20000)) ]);
     deletedIds=[];
     products = adminData.map((p,i)=>({ id:p.id, o:i, n:String(p.n).trim(), c:p.c, t:p.t, p:parseInt(p.p,10)||0, d:String(p.d||'').trim(), fresh:!!p.fresh, img:p.img||undefined }));
     fromDB=true; snapshotOriginals(); repaintGrid();
@@ -527,7 +527,9 @@ async function saveAll(){
   }catch(ex){
     console.error(ex);
     const code=ex&&ex.code;
-    if(code==='permission-denied') status('Permiso denegado. Revisa las reglas de seguridad de Firestore (paso final).');
+    if(code==='permission-denied') status('⚠️ Permiso denegado: falta PUBLICAR las reglas de seguridad de Firestore. Publícalas y vuelve a intentar.');
+    else if(code==='timeout') status('⚠️ Está tardando demasiado. Revisa tu internet y que hayas PUBLICADO las reglas de Firestore, y toca Guardar de nuevo.');
+    else if(code==='unavailable') status('Sin conexión con la base de datos. Revisa tu internet e intenta de nuevo.');
     else status('No se pudo guardar'+(code?' ('+code+')':'')+'. Intenta de nuevo.');
   } finally { const b2=document.getElementById('btn-save'); if(b2) b2.disabled=false; }
 }
