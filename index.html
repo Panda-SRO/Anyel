@@ -5,6 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pescadería Ojier</title>
 <meta name="description" content="Pescadería Ojier — pescados y mariscos frescos del día en Chile. Reineta, congrio, salmón, choritos, machas y más. Pedidos por WhatsApp.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Pescadería Ojier — Fresco del mar, directo a tu mesa">
+<meta property="og:description" content="Pescados y mariscos frescos del día en Chile. Reineta, congrio, salmón, choritos, machas y más. Haz tu pedido por WhatsApp.">
+<meta property="og:image" content="https://panda-sro.github.io/PescaderiaOjier/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://panda-sro.github.io/PescaderiaOjier/">
+<meta property="og:site_name" content="Pescadería Ojier">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Pescadería Ojier — Fresco del mar, directo a tu mesa">
+<meta name="twitter:description" content="Pescados y mariscos frescos del día en Chile. Pedidos por WhatsApp.">
+<meta name="twitter:image" content="https://panda-sro.github.io/PescaderiaOjier/og.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -307,13 +319,50 @@ function icw(d){ return '<svg width="26" height="26" viewBox="0 0 24 24" fill="n
 const CLP = n => '$' + Number(n||0).toLocaleString('es-CL');
 const waUrl = msg => 'https://wa.me/'+WA_NUMBER+'?text='+encodeURIComponent(msg);
 const SITE_URL = 'https://panda-sro.github.io/PescaderiaOjier/';
-async function shareProduct(n,p,d){
-  const price = CLP(parseInt(p,10)||0);
-  const text = '🐟 '+n+' — '+price+'/kg en Pescadería Ojier.'+(d?('\n'+d):'')+'\n\nHaz tu pedido por WhatsApp 👉 '+SITE_URL;
-  if(navigator.share){
-    try{ await navigator.share({title:'Pescadería Ojier — '+n, text:text, url:SITE_URL}); return; }
+function loadImg(src){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
+function svgToUrl(svg){ return 'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg); }
+function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function fitFont(ctx,text,weight,serif,max,startPx){ let px=startPx; do{ ctx.font=weight+' '+px+'px '+(serif?'Georgia, serif':'"DM Sans", system-ui, sans-serif'); if(ctx.measureText(text).width<=max) break; px-=4; }while(px>26); return px; }
+/* genera una imagen (poster) del producto para compartir */
+async function makeShareImage(p){
+  try{ if(document.fonts && document.fonts.ready) await Promise.race([document.fonts.ready, new Promise(r=>setTimeout(r,800))]); }catch(e){}
+  const W=1080,H=1080,pad=70; const c=document.createElement('canvas'); c.width=W;c.height=H; const ctx=c.getContext('2d');
+  const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#0f3c5c'); g.addColorStop(1,'#08283f'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  const panelY=96, panelH=620, panelW=W-2*pad;
+  roundRect(ctx,pad,panelY,panelW,panelH,44); ctx.fillStyle='#eef4f7'; ctx.fill();
+  try{
+    let im, cover=false;
+    if(p.img){ im=await loadImg(p.img); cover=true; }
+    else { let svg=art(p).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" '); im=await loadImg(svgToUrl(svg)); }
+    ctx.save(); roundRect(ctx,pad,panelY,panelW,panelH,44); ctx.clip();
+    if(cover){ const s=Math.max(panelW/im.width,panelH/im.height); const dw=im.width*s,dh=im.height*s; ctx.drawImage(im,pad+(panelW-dw)/2,panelY+(panelH-dh)/2,dw,dh); }
+    else { const bw=panelW-120,bh=panelH-120; const s=Math.min(bw/im.width,bh/im.height); const dw=im.width*s,dh=im.height*s; ctx.drawImage(im,pad+(panelW-dw)/2,panelY+(panelH-dh)/2,dw,dh); }
+    ctx.restore();
+  }catch(e){}
+  if(p.fresh){ ctx.fillStyle='#ff6a45'; roundRect(ctx,pad+30,panelY+30,280,64,32); ctx.fill(); ctx.fillStyle='#fff'; ctx.font='700 30px "DM Sans", system-ui, sans-serif'; ctx.textAlign='center'; ctx.fillText('FRESCO DEL DÍA',pad+170,panelY+72); }
+  ctx.textAlign='left';
+  const nameY=panelY+panelH+120; const npx=fitFont(ctx,p.n,'700',false,W-2*pad,88); ctx.fillStyle='#ffffff'; ctx.font='700 '+npx+'px "DM Sans", system-ui, sans-serif'; ctx.fillText(p.n,pad,nameY);
+  ctx.fillStyle='#ff6a45'; ctx.font='700 78px Georgia, serif'; ctx.fillText(CLP(p.p)+' /kg',pad,nameY+96);
+  ctx.fillStyle='#12a8a5'; ctx.font='700 32px "DM Sans", system-ui, sans-serif'; ctx.fillText('🐟 PESCADERÍA OJIER · Fresco del mar',pad,H-64);
+  return c.toDataURL('image/jpeg',0.9);
+}
+async function shareProduct(name){
+  const key=String(name||'').trim().toLowerCase();
+  const p=products.find(x=>String(x.n||'').trim().toLowerCase()===key) || {n:name,p:0,d:''};
+  const text='🐟 '+p.n+' — '+CLP(p.p)+'/kg en Pescadería Ojier.'+(p.d?('\n'+p.d):'')+'\n\nHaz tu pedido por WhatsApp 👉 '+SITE_URL;
+  // 1) intentar compartir con la imagen adjunta (celulares compatibles)
+  let file=null;
+  try{ const dataUrl=await makeShareImage(p); const blob=await (await fetch(dataUrl)).blob(); file=new File([blob], (slug(p.n)||'producto')+'.jpg', {type:'image/jpeg'}); }catch(e){}
+  if(file && navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], text:text}); return; }
     catch(err){ if(err && err.name==='AbortError') return; }
   }
+  // 2) compartir solo texto + enlace (con vista previa por Open Graph)
+  if(navigator.share){
+    try{ await navigator.share({title:'Pescadería Ojier — '+p.n, text:text, url:SITE_URL}); return; }
+    catch(err){ if(err && err.name==='AbortError') return; }
+  }
+  // 3) escritorio: copiar y abrir WhatsApp
   try{ await navigator.clipboard.writeText(text); toast('Enlace copiado. ¡Pégalo donde quieras compartir! ✓'); }catch(e){}
   window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank','noopener');
 }
@@ -343,7 +392,7 @@ function cardHTML(p){
     +'<p class="desc">'+esc(p.d)+'</p><div class="card-foot">'
     +'<div class="price">'+CLP(p.p)+'<small>por kilo</small></div>'
     +'<div class="card-actions">'
-    +'<button class="btn-share" type="button" data-n="'+esc(p.n)+'" data-p="'+(+p.p||0)+'" data-d="'+esc(p.d||'')+'" aria-label="Compartir '+esc(p.n)+'" title="Compartir">'+shareSvg(17)+'</button>'
+    +'<button class="btn-share" type="button" data-n="'+esc(p.n)+'" aria-label="Compartir '+esc(p.n)+'" title="Compartir">'+shareSvg(17)+'</button>'
     +'<a class="btn-order" href="'+waUrl(msg)+'" target="_blank" rel="noopener">'+waSvg(15)+' Pedir</a>'
     +'</div></div></div></article>';
 }
@@ -428,7 +477,7 @@ function toast(msg){ const t=document.getElementById('toast'); if(!t) return; t.
 /* ================== EVENTOS GLOBALES ================== */
 document.addEventListener('click', e=>{
   const sh = e.target.closest && e.target.closest('.btn-share');
-  if(sh){ e.preventDefault(); shareProduct(sh.getAttribute('data-n'), sh.getAttribute('data-p'), sh.getAttribute('data-d')); return; }
+  if(sh){ e.preventDefault(); shareProduct(sh.getAttribute('data-n')); return; }
   const f = e.target.closest && e.target.closest('.filter');
   if(f){ activeCat=f.getAttribute('data-cat'); document.querySelectorAll('.filter').forEach(b=>b.classList.toggle('active',b===f)); const grid=document.getElementById('grid'); if(grid) grid.innerHTML=gridHTML(activeCat==='Todos'?products:products.filter(p=>p.c===activeCat)); return; }
   if(e.target.closest && e.target.closest('#open-admin')){ e.preventDefault(); openAdmin(); return; }
