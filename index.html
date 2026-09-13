@@ -310,9 +310,11 @@ function newId(n){ return (slug(n)||'prod')+'-'+Math.random().toString(36).slice
 let products = DEFAULT_PRODUCTS.map((p,i)=>({id:newId(p.n), o:i, ...p}));
 let fromDB = false;
 let fb = null;
+let fbState = 'loading';
 let currentUser = null;
 let adminData = null;
 let deletedIds = [];
+let originalKeys = {};
 
 /* ================== RENDER ================== */
 const app = document.getElementById('app');
@@ -430,18 +432,20 @@ document.addEventListener('change', e=>{
   const el=e.target;
   if(el.type==='file' && el.getAttribute('data-i')!=null){
     const i=+el.getAttribute('data-i'); const file=el.files&&el.files[0]; if(!file||!adminData[i]) return;
-    resizeImage(file,900,0.62).then(u=>{ adminData[i].img=u; renderEditor(); }).catch(()=>toast('No se pudo procesar la imagen.'));
+    resizeImage(file,800,0.58).then(u=>{ adminData[i].img=u; renderEditor(); }).catch(()=>toast('No se pudo procesar la imagen.'));
   }
 });
 function resizeImage(file,maxDim,q){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>{ const img=new Image(); img.onload=()=>{ let w=img.width,h=img.height; if(w>h&&w>maxDim){h=Math.round(h*maxDim/w);w=maxDim;} else if(h>maxDim){w=Math.round(w*maxDim/h);h=maxDim;} const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); try{res(c.toDataURL('image/jpeg',q));}catch(err){rej(err);} }; img.onerror=rej; img.src=r.result; }; r.onerror=rej; r.readAsDataURL(file); }); }
 
 /* ================== ADMIN UI ================== */
 function openAdmin(){ ensureAdminData(); const ov=document.getElementById('admin-overlay'); if(!ov) return; ov.hidden=false; renderPanel(); }
-function ensureAdminData(){ if(currentUser && !adminData){ adminData=products.map(p=>Object.assign({},p)); deletedIds=[]; } }
+function ensureAdminData(){ if(currentUser && !adminData){ adminData=products.map(p=>Object.assign({},p)); deletedIds=[]; snapshotOriginals(); } }
+function prodKey(p){ return JSON.stringify([p.n||'',p.c||'',p.t||'',+p.p||0,p.d||'',!!p.fresh,p.img||'',p.o]); }
+function snapshotOriginals(){ originalKeys={}; products.forEach(p=>{ originalKeys[p.id]=prodKey(p); }); }
 function closeAdmin(){ const ov=document.getElementById('admin-overlay'); if(ov) ov.hidden=true; }
 function renderPanel(){
   const el=document.getElementById('admin-panel'); if(!el) return;
-  if(!fb){ el.innerHTML='<div class="admin-head"><h3>Administración</h3><button class="admin-close" id="admin-close">×</button></div><p class="admin-sub">No se pudo conectar con la base de datos. Revisa tu conexión a internet y vuelve a intentar.</p>'; return; }
+  if(!fb){ const msg = fbState==='loading' ? 'Conectando con la base de datos… espera unos segundos (no cierres esta ventana). Si sigue así, revisa tu internet.' : 'No se pudo conectar con la base de datos. Revisa tu conexión a internet y vuelve a intentar.'; el.innerHTML='<div class="admin-head"><h3>Administración</h3><button class="admin-close" id="admin-close">×</button></div><p class="admin-sub">'+msg+'</p>'; return; }
   if(!currentUser){ renderLogin(el); } else { renderEditorShell(el); renderEditor(); }
 }
 function renderLogin(el){
@@ -495,30 +499,32 @@ function status(m){ const s=document.getElementById('save-status'); if(s) s.text
 async function saveAll(){
   if(!adminData) return;
   for(let i=0;i<adminData.length;i++){ if(!String(adminData[i].n||'').trim()){ status('Falta el nombre en un producto (fila '+(i+1)+').'); return; } if(!(adminData[i].p>0)){ status('Falta un precio válido en “'+(adminData[i].n||('fila '+(i+1)))+'”.'); return; } }
+  const bt=document.getElementById('btn-save'); if(bt) bt.disabled=true;
   status('Guardando…');
   try{
-    const batch = fb.writeBatch(fb.db);
+    const batch = fb.writeBatch(fb.db); let changes=0;
     adminData.forEach((p,i)=>{
       const id = p.id || newId(p.n);
       const data = { n:String(p.n).trim(), c:p.c||'Pescados', t:p.t||'fish', p:parseInt(p.p,10)||0, d:String(p.d||'').trim(), o:i };
       if(p.fresh) data.fresh=true;
       if(p.img) data.img=p.img;
-      batch.set(fb.doc(fb.db,'productos',id), data);
+      const key = prodKey({n:data.n,c:data.c,t:data.t,p:data.p,d:data.d,fresh:!!p.fresh,img:p.img||'',o:i});
+      if(!p.id || originalKeys[id]!==key){ batch.set(fb.doc(fb.db,'productos',id), data); changes++; }
       p.id=id;
     });
-    (deletedIds||[]).forEach(id=>{ batch.delete(fb.doc(fb.db,'productos',id)); });
+    (deletedIds||[]).forEach(id=>{ batch.delete(fb.doc(fb.db,'productos',id)); changes++; });
+    if(changes===0){ status('No hay cambios que guardar.'); if(bt) bt.disabled=false; return; }
     await batch.commit();
     deletedIds=[];
     products = adminData.map((p,i)=>({ id:p.id, o:i, n:String(p.n).trim(), c:p.c, t:p.t, p:parseInt(p.p,10)||0, d:String(p.d||'').trim(), fresh:!!p.fresh, img:p.img||undefined }));
-    fromDB=true;
-    repaintGrid();
+    fromDB=true; snapshotOriginals(); repaintGrid();
     status('¡Guardado! Los cambios ya están publicados. ✓');
   }catch(ex){
     console.error(ex);
     const code=ex&&ex.code;
-    if(code==='permission-denied') status('Permiso denegado. Revisa las reglas de seguridad de Firestore.');
+    if(code==='permission-denied') status('Permiso denegado. Revisa las reglas de seguridad de Firestore (paso final).');
     else status('No se pudo guardar'+(code?' ('+code+')':'')+'. Intenta de nuevo.');
-  }
+  } finally { const b2=document.getElementById('btn-save'); if(b2) b2.disabled=false; }
 }
 
 /* ================== FIREBASE (carga tolerante a fallos) ================== */
@@ -539,6 +545,8 @@ async function saveAll(){
       setDoc:fsMod.setDoc, deleteDoc:fsMod.deleteDoc, writeBatch:fsMod.writeBatch,
       signInWithEmailAndPassword:authMod.signInWithEmailAndPassword, signOut:authMod.signOut, onAuthStateChanged:authMod.onAuthStateChanged
     };
+    fbState='ready';
+    { const ov=document.getElementById('admin-overlay'); if(ov && !ov.hidden) renderPanel(); }
     // cargar productos guardados
     try{
       const snap = await fb.getDocs(fb.collection(db,'productos'));
@@ -552,11 +560,11 @@ async function saveAll(){
     fb.onAuthStateChanged(auth, u=>{
       currentUser=u;
       const b=document.getElementById('open-admin'); if(b) b.classList.toggle('on', !!u);
-      const ov=document.getElementById('admin-overlay');
-      if(ov && !ov.hidden){ adminData = u ? products.map(p=>Object.assign({},p)) : null; deletedIds=[]; renderPanel(); }
-      else { adminData = u ? products.map(p=>Object.assign({},p)) : null; }
+      if(u){ adminData = products.map(p=>Object.assign({},p)); deletedIds=[]; snapshotOriginals(); }
+      else { adminData = null; deletedIds=[]; }
+      const ov=document.getElementById('admin-overlay'); if(ov && !ov.hidden) renderPanel();
     });
-  }catch(ex){ console.warn('Firebase no disponible; mostrando catálogo por defecto.', ex); fb=null; }
+  }catch(ex){ console.warn('Firebase no disponible; mostrando catálogo por defecto.', ex); fb=null; fbState='failed'; const ov=document.getElementById('admin-overlay'); if(ov && !ov.hidden) renderPanel(); }
 })();
 </script>
 </body>
