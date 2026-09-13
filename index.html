@@ -415,6 +415,7 @@ document.addEventListener('click', e=>{
   if(e.target.closest && e.target.closest('#open-admin')){ e.preventDefault(); openAdmin(); return; }
   if(e.target.id==='admin-overlay' || e.target.id==='admin-close'){ closeAdmin(); return; }
   if(e.target.id==='btn-login'){ doLogin(); return; }
+  if(e.target.id==='btn-forget'){ try{ localStorage.removeItem('ojier_admin_email'); }catch(err){} renderPanel(); return; }
   if(e.target.id==='btn-logout'){ doLogout(); return; }
   if(e.target.id==='btn-add'){ addRow(); return; }
   if(e.target.id==='btn-save'){ saveAll(); return; }
@@ -449,21 +450,25 @@ function renderPanel(){
   if(!currentUser){ renderLogin(el); } else { renderEditorShell(el); renderEditor(); }
 }
 function renderLogin(el){
+  let savedEmail=''; try{ savedEmail=localStorage.getItem('ojier_admin_email')||''; }catch(e){}
   el.innerHTML='<div class="admin-head"><h3>Iniciar sesión</h3><button class="admin-close" id="admin-close">×</button></div>'
   +'<p class="admin-sub">Ingresa con tu correo y contraseña de administrador para editar el mostrador.</p>'
   +'<div class="login-box">'
-  +'<div><label class="a-label" for="login-email">Correo</label><input class="a-input" id="login-email" type="email" autocomplete="username" inputmode="email"></div>'
+  +'<div><label class="a-label" for="login-email">Correo</label><input class="a-input" id="login-email" type="email" autocomplete="username" inputmode="email" value="'+esc(savedEmail)+'"></div>'
   +'<div><label class="a-label" for="login-pass">Contraseña</label><input class="a-input" id="login-pass" type="password" autocomplete="current-password"></div>'
   +'<button class="btn-primary" id="btn-login">Entrar</button>'
+  +(savedEmail?'<div class="save-status">👤 Tu correo guardado en este teléfono: <b>'+esc(savedEmail)+'</b>'+(savedEmail?' <button type="button" id="btn-forget" style="background:none;border:none;color:var(--accent);cursor:pointer;font:inherit;text-decoration:underline;padding:0;margin-left:6px;">olvidar</button>':'')+'</div>':'<div class="save-status">Se recordará tu correo en este teléfono después de entrar.</div>')
   +'<div class="err" id="login-err" hidden></div>'
   +'</div>';
-  const em=document.getElementById('login-email'); if(em) em.focus();
+  const em=document.getElementById('login-email'); const pa=document.getElementById('login-pass');
+  if(savedEmail && pa){ pa.focus(); } else if(em){ em.focus(); }
 }
 function authErr(code){ const m={'auth/invalid-email':'El correo no es válido.','auth/user-disabled':'Este usuario está deshabilitado.','auth/user-not-found':'No existe ese usuario.','auth/wrong-password':'Contraseña incorrecta.','auth/invalid-credential':'Correo o contraseña incorrectos.','auth/too-many-requests':'Demasiados intentos. Espera un momento.','auth/network-request-failed':'Sin conexión. Revisa tu internet.'}; return m[code]||'No se pudo iniciar sesión.'; }
 async function doLogin(){
   const em=document.getElementById('login-email'), pa=document.getElementById('login-pass'), er=document.getElementById('login-err'), bt=document.getElementById('btn-login');
   if(!em||!pa) return; er.hidden=true; bt.disabled=true; bt.textContent='Entrando…';
-  try{ await fb.signInWithEmailAndPassword(fb.auth, em.value.trim(), pa.value); }
+  const email=em.value.trim();
+  try{ await fb.signInWithEmailAndPassword(fb.auth, email, pa.value); try{ localStorage.setItem('ojier_admin_email', email); }catch(e){} }
   catch(ex){ er.textContent=authErr(ex&&ex.code); er.hidden=false; bt.disabled=false; bt.textContent='Entrar'; }
 }
 async function doLogout(){ try{ await fb.signOut(fb.auth); }catch(ex){} closeAdmin(); }
