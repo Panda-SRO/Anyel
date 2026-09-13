@@ -239,6 +239,8 @@ const firebaseConfig = {
   measurementId: "G-XKJW21QYWP"
 };
 const WA_NUMBER = '56991565317';
+const WA_ENABLED = false; /* ← pon true cuando quieras reactivar los pedidos por WhatsApp */
+const WA_SOON_MSG = '🛠️ Los pedidos por WhatsApp estarán habilitados muy pronto. ¡Gracias por tu paciencia!';
 const CATS_ORDER = ['Pescados','Mariscos','Ahumados y preparados'];
 
 /* ================== PRODUCTOS POR DEFECTO (semilla / respaldo) ================== */
@@ -393,7 +395,7 @@ function cardHTML(p){
     +'<div class="price">'+CLP(p.p)+'<small>por kilo</small></div>'
     +'<div class="card-actions">'
     +'<button class="btn-share" type="button" data-n="'+esc(p.n)+'" aria-label="Compartir '+esc(p.n)+'" title="Compartir">'+shareSvg(17)+'</button>'
-    +'<a class="btn-order" href="'+waUrl(msg)+'" target="_blank" rel="noopener">'+waSvg(15)+' Pedir</a>'
+    +'<a class="btn-order" href="'+(WA_ENABLED?waUrl(msg):'#')+'"'+(WA_ENABLED?' target="_blank" rel="noopener"':' aria-disabled="true"')+'>'+waSvg(15)+' Pedir</a>'
     +'</div></div></div></article>';
 }
 function gridHTML(list){ if(!list.length) return '<div class="empty">No hay productos en esta categoría.</div>'; return list.map(cardHTML).join(''); }
@@ -461,7 +463,7 @@ function SHELL(){ return ''
 function adminOverlayHTML(){ return '<div id="admin-overlay" class="admin-overlay" hidden><div class="admin-panel" id="admin-panel"></div></div>'; }
 
 function paint(){ app.innerHTML = SHELL(); wireWa(); }
-function wireWa(){ const msg='Hola Pescadería Ojier 👋, me gustaría hacer un pedido.'; document.querySelectorAll('[data-wa]').forEach(a=>{ a.href=waUrl(msg); }); }
+function wireWa(){ const msg='Hola Pescadería Ojier 👋, me gustaría hacer un pedido.'; document.querySelectorAll('[data-wa]').forEach(a=>{ if(WA_ENABLED){ a.href=waUrl(msg); a.removeAttribute('aria-disabled'); } else { a.href='#'; a.setAttribute('aria-disabled','true'); } }); }
 function repaintGrid(){
   const grid=document.getElementById('grid'); if(grid) grid.innerHTML=gridHTML(activeCat==='Todos'?products:products.filter(p=>p.c===activeCat));
   const fil=document.getElementById('filters'); if(fil) fil.innerHTML=filtersHTML(products);
@@ -478,6 +480,7 @@ function toast(msg){ const t=document.getElementById('toast'); if(!t) return; t.
 document.addEventListener('click', e=>{
   const sh = e.target.closest && e.target.closest('.btn-share');
   if(sh){ e.preventDefault(); shareProduct(sh.getAttribute('data-n')); return; }
+  if(!WA_ENABLED){ const waHit=e.target.closest && e.target.closest('[data-wa], .btn-order'); if(waHit){ e.preventDefault(); toast(WA_SOON_MSG); return; } }
   const f = e.target.closest && e.target.closest('.filter');
   if(f){ activeCat=f.getAttribute('data-cat'); document.querySelectorAll('.filter').forEach(b=>b.classList.toggle('active',b===f)); const grid=document.getElementById('grid'); if(grid) grid.innerHTML=gridHTML(activeCat==='Todos'?products:products.filter(p=>p.c===activeCat)); return; }
   if(e.target.closest && e.target.closest('#open-admin')){ e.preventDefault(); openAdmin(); return; }
