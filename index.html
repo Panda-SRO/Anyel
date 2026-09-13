@@ -118,6 +118,9 @@
   .price small{display:block;font-family:var(--sans);font-size:12px;color:var(--muted);font-weight:500;margin-top:5px;}
   .btn-order{background:var(--wa);color:#053;border:none;font-family:var(--sans);font-weight:700;font-size:13.5px;padding:11px 15px;border-radius:11px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;transition:transform .15s ease, background .15s ease;text-decoration:none;}
   .btn-order:hover{transform:translateY(-1px);background:#20c05d;}
+  .card-actions{display:flex;gap:8px;align-items:center;}
+  .btn-share{background:var(--surface-2);color:var(--muted);border:1px solid var(--line-strong);width:40px;height:40px;border-radius:11px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;transition:transform .15s ease, color .15s ease, border-color .15s ease;flex-shrink:0;padding:0;}
+  .btn-share:hover{color:var(--accent);border-color:var(--accent);transform:translateY(-1px);}
   .market-note{margin-top:26px;font-size:13.5px;color:var(--muted);display:flex;gap:9px;align-items:flex-start;}
   .market-note svg{color:var(--accent);flex-shrink:0;margin-top:2px;}
   .empty{padding:40px;text-align:center;color:var(--muted);font-size:15px;grid-column:1/-1;}
@@ -292,6 +295,7 @@ function art(p){ if(ART[p.n]) return ART[p.n](); if(TYPE_ART[p.t]) return TYPE_A
 const TYPE_LABELS = {fish:'Pescado',shell:'Marisco (concha)',shrimp:'Camarón',octopus:'Pulpo',crab:'Jaiba/cangrejo',prepared:'Preparado'};
 const WA_PATH = 'M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2z';
 function waSvg(sz){return '<svg width="'+sz+'" height="'+sz+'" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="'+WA_PATH+'"/></svg>';}
+function shareSvg(sz){return '<svg width="'+sz+'" height="'+sz+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>';}
 function lockSvg(){ return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>'; }
 function chk(){ return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>'; }
 function ic(d){ return '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="'+d+'"/></svg>'; }
@@ -302,6 +306,17 @@ function icw(d){ return '<svg width="26" height="26" viewBox="0 0 24 24" fill="n
 /* ================== HELPERS ================== */
 const CLP = n => '$' + Number(n||0).toLocaleString('es-CL');
 const waUrl = msg => 'https://wa.me/'+WA_NUMBER+'?text='+encodeURIComponent(msg);
+const SITE_URL = 'https://panda-sro.github.io/PescaderiaOjier/';
+async function shareProduct(n,p,d){
+  const price = CLP(parseInt(p,10)||0);
+  const text = '🐟 '+n+' — '+price+'/kg en Pescadería Ojier.'+(d?('\n'+d):'')+'\n\nHaz tu pedido por WhatsApp 👉 '+SITE_URL;
+  if(navigator.share){
+    try{ await navigator.share({title:'Pescadería Ojier — '+n, text:text, url:SITE_URL}); return; }
+    catch(err){ if(err && err.name==='AbortError') return; }
+  }
+  try{ await navigator.clipboard.writeText(text); toast('Enlace copiado. ¡Pégalo donde quieras compartir! ✓'); }catch(e){}
+  window.open('https://wa.me/?text='+encodeURIComponent(text),'_blank','noopener');
+}
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function slug(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
 function newId(n){ return (slug(n)||'prod')+'-'+Math.random().toString(36).slice(2,7); }
@@ -327,8 +342,10 @@ function cardHTML(p){
     +'<div class="card-body"><h3>'+esc(p.n)+'</h3><div class="cat">'+esc(p.c)+'</div>'
     +'<p class="desc">'+esc(p.d)+'</p><div class="card-foot">'
     +'<div class="price">'+CLP(p.p)+'<small>por kilo</small></div>'
+    +'<div class="card-actions">'
+    +'<button class="btn-share" type="button" data-n="'+esc(p.n)+'" data-p="'+(+p.p||0)+'" data-d="'+esc(p.d||'')+'" aria-label="Compartir '+esc(p.n)+'" title="Compartir">'+shareSvg(17)+'</button>'
     +'<a class="btn-order" href="'+waUrl(msg)+'" target="_blank" rel="noopener">'+waSvg(15)+' Pedir</a>'
-    +'</div></div></article>';
+    +'</div></div></div></article>';
 }
 function gridHTML(list){ if(!list.length) return '<div class="empty">No hay productos en esta categoría.</div>'; return list.map(cardHTML).join(''); }
 function filtersHTML(list){ const cats=['Todos'].concat(catsPresent(list)); return cats.map((c,i)=>'<button class="filter'+(i===0?' active':'')+'" data-cat="'+esc(c)+'">'+esc(c)+'</button>').join(''); }
@@ -410,6 +427,8 @@ function toast(msg){ const t=document.getElementById('toast'); if(!t) return; t.
 
 /* ================== EVENTOS GLOBALES ================== */
 document.addEventListener('click', e=>{
+  const sh = e.target.closest && e.target.closest('.btn-share');
+  if(sh){ e.preventDefault(); shareProduct(sh.getAttribute('data-n'), sh.getAttribute('data-p'), sh.getAttribute('data-d')); return; }
   const f = e.target.closest && e.target.closest('.filter');
   if(f){ activeCat=f.getAttribute('data-cat'); document.querySelectorAll('.filter').forEach(b=>b.classList.toggle('active',b===f)); const grid=document.getElementById('grid'); if(grid) grid.innerHTML=gridHTML(activeCat==='Todos'?products:products.filter(p=>p.c===activeCat)); return; }
   if(e.target.closest && e.target.closest('#open-admin')){ e.preventDefault(); openAdmin(); return; }
@@ -418,6 +437,7 @@ document.addEventListener('click', e=>{
   if(e.target.id==='btn-forget'){ try{ localStorage.removeItem('ojier_admin_email'); }catch(err){} renderPanel(); return; }
   if(e.target.id==='btn-logout'){ doLogout(); return; }
   if(e.target.id==='btn-add'){ addRow(); return; }
+  if(e.target.id==='btn-restore'){ restoreDefaults(); return; }
   if(e.target.id==='btn-save'){ saveAll(); return; }
   const del=e.target.closest && e.target.closest('.btn-del'); if(del){ const i=+del.getAttribute('data-i'); const it=adminData[i]; if(it && it.id && fromDB) deletedIds.push(it.id); adminData.splice(i,1); renderEditor(); return; }
   const pick=e.target.closest && e.target.closest('.admin-thumb-btn'); if(pick){ const fi=pick.parentNode.querySelector('input[type=file]'); if(fi) fi.click(); return; }
@@ -442,7 +462,7 @@ function resizeImage(file,maxDim,q){ return new Promise((res,rej)=>{ const r=new
 function openAdmin(){ ensureAdminData(); const ov=document.getElementById('admin-overlay'); if(!ov) return; ov.hidden=false; renderPanel(); }
 function ensureAdminData(){ if(currentUser && !adminData){ adminData=products.map(p=>Object.assign({},p)); deletedIds=[]; snapshotOriginals(); } }
 function prodKey(p){ return JSON.stringify([p.n||'',p.c||'',p.t||'',+p.p||0,p.d||'',!!p.fresh,p.img||'',p.o]); }
-function snapshotOriginals(){ originalKeys={}; products.forEach(p=>{ originalKeys[p.id]=prodKey(p); }); }
+function snapshotOriginals(){ originalKeys={}; if(!fromDB) return; products.forEach(p=>{ originalKeys[p.id]=prodKey(p); }); }
 function closeAdmin(){ const ov=document.getElementById('admin-overlay'); if(ov) ov.hidden=true; }
 function renderPanel(){
   const el=document.getElementById('admin-panel'); if(!el) return;
@@ -477,7 +497,10 @@ function renderEditorShell(el){
   +'<div class="admin-toolbar"><span class="admin-user">Conectado como <b>'+esc(currentUser.email||'admin')+'</b></span><button class="btn-ghost2" id="btn-logout">Cerrar sesión</button></div>'
   +(fromDB?'':'<p class="admin-sub">Este catálogo aún no está guardado en la base de datos. Revisa/ajusta y pulsa <b>Guardar</b> para publicarlo (se guardará para todos).</p>')
   +'<div id="admin-list"></div>'
+  +'<div style="display:flex;gap:10px;flex-wrap:wrap;">'
   +'<button class="btn-dark" id="btn-add">+ Agregar producto</button>'
+  +'<button class="btn-ghost2" id="btn-restore" title="Vuelve a agregar los productos base que falten">↺ Restaurar productos base</button>'
+  +'</div>'
   +'<div class="admin-actions"><button class="btn-primary" id="btn-save">Guardar y publicar</button><span class="save-status" id="save-status"></span></div>';
 }
 function rowHTML(p,i){
@@ -499,6 +522,14 @@ function rowHTML(p,i){
 }
 function renderEditor(){ const w=document.getElementById('admin-list'); if(w) w.innerHTML=adminData.map(rowHTML).join(''); }
 function addRow(){ adminData.push({id:'', n:'', c:'Pescados', t:'fish', p:0, d:'', fresh:false, _new:true}); renderEditor(); const rows=document.querySelectorAll('.admin-row'); if(rows.length) rows[rows.length-1].scrollIntoView({behavior:'smooth',block:'center'}); }
+function restoreDefaults(){
+  if(!adminData) return;
+  const have = {}; adminData.forEach(p=>{ have[String(p.n||'').trim().toLowerCase()]=true; });
+  let added=0;
+  DEFAULT_PRODUCTS.forEach(dp=>{ if(!have[dp.n.trim().toLowerCase()]){ adminData.push({id:'', n:dp.n, c:dp.c, t:dp.t, p:dp.p, d:dp.d, fresh:!!dp.fresh, _new:true}); added++; } });
+  renderEditor();
+  status(added ? ('Se agregaron '+added+' producto(s) base. Revisa y pulsa “Guardar y publicar”.') : 'Ya tienes todos los productos base en la lista.');
+}
 function status(m){ const s=document.getElementById('save-status'); if(s) s.textContent=m; }
 
 async function saveAll(){
